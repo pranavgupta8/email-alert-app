@@ -7,7 +7,9 @@ const morgan = require('morgan');
 // are automatically loaded.
 require('dotenv').config();
 
+const {ALERT_FROM_EMAIL, ALERT_FROM_NAME, ALERT_TO_EMAIL} = process.env;
 const {logger} = require('./utilities/logger');
+const {sendEmail} = require('./emailer');
 // these are custom errors we've created
 const {FooError, BarError, BizzError} = require('./errors');
 
@@ -30,6 +32,25 @@ app.get('*', russianRoulette);
 // YOUR MIDDLEWARE FUNCTION should be activated here using
 // `app.use()`. It needs to come BEFORE the `app.use` call
 // below, which sends a 500 and error message to the client
+const middlewareAlert = (err, req, res, next) => {
+  // if it's an error we care about send a message
+  if (err instanceof FooError || err instanceof BarError) {
+    logger.info(`Attempting to send error alert email to ${ALERT_TO_EMAIL}`);
+
+    const emailData = {
+      from: ALERT_FROM_EMAIL,
+      to: ALERT_TO_EMAIL,
+      subject: `SERVICE ALERT: ${err.name}`,
+      text: `Something went wrong. Here's what we know:\n\n${err.stack}`
+    };
+    sendEmail(emailData);
+  }
+  // always want to call next to pass control to next
+  // middleware function
+  next();
+}
+
+app.use(middlewareAlert);
 
 app.use((err, req, res, next) => {
   logger.error(err);
